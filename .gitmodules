@@ -1,0 +1,9 @@
+[submodule "backend"]
+	path = backend
+	url = https://github.com/NITHV/backend-service.git
+[submodule "frontend"]
+	path = frontend
+	url = https://github.com/NITHV/frontend-service.git
+[submodule "worker"]
+	path = worker
+	url = https://github.com/NITHV/worker-service.git

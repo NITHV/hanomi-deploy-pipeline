@@ -1,0 +1,14 @@
+[Unit]
+Description=Backend service
+After=network.target
+
+[Service]
+User=app
+Group=app
+EnvironmentFile=-/etc/app-stack/backend.env
+ExecStart=/opt/app-stack/backend/current/backend
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
