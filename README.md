@@ -34,19 +34,38 @@ idempotent when a VM has no previous release. A production GitHub Environment
 provides an audit trail and can optionally require an approval before deployment.
 The concurrency group permits only one production rollout at a time.
 
-```text
-merge to main
-  -> checkout parent + submodules
-  -> test/build/package all services
-  -> deploy backend -> health check
-  -> deploy frontend -> health check
-  -> deploy worker -> health check
-  -> success
+```mermaid
+flowchart TD
+    M[Merge parent repo to main] --> C[Checkout parent and 3 submodules]
+    C --> B[Build, test, and package all services]
+    B --> A[(Immutable GitHub Actions artifacts)]
 
-any deploy/health failure
-  -> rollback backend + frontend + worker
-  -> health-check each rollback
-  -> workflow fails visibly
+    A --> DB[Deploy backend over SSH]
+    DB --> HB{Backend healthy?}
+    HB -- Yes --> DF[Deploy frontend over SSH]
+    DF --> HF{Frontend healthy?}
+    HF -- Yes --> DW[Deploy Windows worker over SSH]
+    DW --> HW{Worker healthy?}
+    HW -- Yes --> S[Deployment succeeds]
+
+    HB -- No --> R[Rollback all services]
+    HF -- No --> R
+    HW -- No --> R
+    R --> RP[Switch current to previous release]
+    RP --> RH[Restart and health-check every service]
+    RH --> F[Workflow fails visibly]
+```
+
+Each target VM keeps its own release history:
+
+```mermaid
+flowchart LR
+    G[GitHub Actions orchestrator] -->|SSH and artifact| VM[Service VM]
+    VM --> N[releases/new-commit]
+    C[current symlink or junction] --> N
+    P[previous symlink or junction] --> O[releases/old-commit]
+    X[Health check fails] --> SW[Swap current and previous]
+    SW --> O
 ```
 
 ## Release and rollback strategy
