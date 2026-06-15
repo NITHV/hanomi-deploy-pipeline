@@ -170,7 +170,9 @@ deploy/systemd/               Example Linux service units
 
 ## AI usage
 
-OpenAI Codex was used to help draft the repository structure, example services,
-deployment scripts, workflow, and documentation. The design decisions, failure
-modes, and generated code should be reviewed and explained by the submitter during
-the live discussion.
+AI-assisted development tools were used during this assignment, primarily OpenAI Codex and Cursor, to accelerate repository scaffolding, generate initial deployment scripts, draft workflow definitions, and review the design for potential failure modes and edge cases.
+
+All generated content was reviewed, evaluated, and selectively modified before submission. Design decisions, deployment strategy, rollback behavior, secrets handling, and documented tradeoffs reflect the submitter's understanding of the system and ability to explain and defend those decisions during discussion.
+
+AI was used as an engineering productivity tool rather than as a substitute for architectural review or operational reasoning.
+
