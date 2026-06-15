@@ -27,22 +27,35 @@ deploy_worker() {
   deployed+=("worker")
 }
 
-rollback_all() {
+rollback_deployed() {
   local status=0
-  echo "Deployment failed after: ${deployed[*]:-none}. Rolling back every service."
+  echo "Deployment failed after: ${deployed[*]:-none}. Rolling back deployed services only."
 
-  ssh "${ssh_options[@]}" "${BACKEND_USER}@${BACKEND_HOST}" \
-    "sudo bash -s -- backend '${BACKEND_HEALTH_URL}'" < deploy/linux/rollback.sh || status=1
-  ssh "${ssh_options[@]}" "${FRONTEND_USER}@${FRONTEND_HOST}" \
-    "sudo bash -s -- frontend '${FRONTEND_HEALTH_URL}'" < deploy/linux/rollback.sh || status=1
-  ssh "${ssh_options[@]}" "${WINDOWS_USER}@${WINDOWS_HOST}" \
-    "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File -" \
-    < deploy/windows/Rollback-Worker.ps1 || status=1
+  # Only services that completed deployment and health checking are recorded in
+  # deployed. Rolling back an untouched service could move it to an older release
+  # and cause an unrelated regression.
+  for service in "${deployed[@]}"; do
+    case "$service" in
+      backend)
+        ssh "${ssh_options[@]}" "${BACKEND_USER}@${BACKEND_HOST}" \
+          "sudo bash -s -- backend '${BACKEND_HEALTH_URL}'" < deploy/linux/rollback.sh || status=1
+        ;;
+      frontend)
+        ssh "${ssh_options[@]}" "${FRONTEND_USER}@${FRONTEND_HOST}" \
+          "sudo bash -s -- frontend '${FRONTEND_HEALTH_URL}'" < deploy/linux/rollback.sh || status=1
+        ;;
+      worker)
+        ssh "${ssh_options[@]}" "${WINDOWS_USER}@${WINDOWS_HOST}" \
+          "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File -" \
+          < deploy/windows/Rollback-Worker.ps1 || status=1
+        ;;
+    esac
+  done
 
   return "$status"
 }
 
-trap 'exit_code=$?; trap - ERR; rollback_all || true; exit "$exit_code"' ERR
+trap 'exit_code=$?; trap - ERR; rollback_deployed || true; exit "$exit_code"' ERR
 
 deploy_linux backend "$BACKEND_HOST" "$BACKEND_USER" artifacts/backend.tar.gz "$BACKEND_HEALTH_URL"
 deploy_linux frontend "$FRONTEND_HOST" "$FRONTEND_USER" artifacts/frontend.tar.gz "$FRONTEND_HEALTH_URL"

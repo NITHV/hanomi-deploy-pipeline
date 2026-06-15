@@ -29,10 +29,10 @@ The deploy job connects to each VM over SSH and deploys sequentially:
 
 Sequential deployment is intentionally simple and makes the failure point obvious.
 The orchestrator uses an `ERR` trap: if upload, restart, or health checking fails
-for any service, it invokes rollback on **all three VMs**. Rollback commands are
-idempotent when a VM has no previous release. A production GitHub Environment
-provides an audit trail and can optionally require an approval before deployment.
-The concurrency group permits only one production rollout at a time.
+for any service, it invokes coordinated rollback for services already deployed in
+the current transaction. A production GitHub Environment provides an audit trail
+and can optionally require an approval before deployment. The concurrency group
+permits only one production rollout at a time.
 
 ```mermaid
 flowchart TD
@@ -48,7 +48,7 @@ flowchart TD
     DW --> HW{Worker healthy?}
     HW -- Yes --> S[Deployment succeeds]
 
-    HB -- No --> R[Rollback all services]
+    HB -- No --> R[Rollback services deployed in this transaction]
     HF -- No --> R
     HW -- No --> R
     R --> RP[Switch current to previous release]
@@ -136,9 +136,12 @@ be preferable to a long-lived SSH key.
 ## Failure handling and tradeoffs
 
 - **Build fails:** production is untouched.
-- **Upload/restart/health check fails:** the orchestrator attempts rollback on all
-  services, continues trying the remaining rollbacks if one rollback fails, and
-  leaves the workflow failed for investigation.
+- **Upload/restart/health check fails:** the orchestrator rolls back only services
+  that successfully deployed earlier in the current transaction. It continues
+  trying the remaining applicable rollbacks if one rollback fails, and leaves the
+  workflow failed for investigation. Untouched services are not rolled back,
+  because moving an unrelated service to its previous release could cause an
+  accidental regression.
 - **Runner dies mid-deploy:** an `ERR` trap cannot execute. This is the main
   limitation of a runner-driven transaction. The operator reruns the failed
   workflow or invokes the rollback scripts. A mature platform would persist
